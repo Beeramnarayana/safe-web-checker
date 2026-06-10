@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Link, FileText, Globe } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Link2, FileText, ImageIcon } from "lucide-react"
 
 type ScanType = "url" | "text" | "media"
 type ScanStatus = "safe" | "suspicious" | "dangerous"
@@ -17,103 +18,105 @@ type ScanResult = {
   score: number
 }
 
+const STATUS_BADGE: Record<ScanStatus, string> = {
+  safe: "bg-green-500/20 text-green-700 dark:text-green-400 hover:bg-green-500/20",
+  suspicious: "bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-500/20",
+  dangerous: "bg-red-500/20 text-red-700 dark:text-red-400 hover:bg-red-500/20",
+}
+
+// FIX: was using <Link> icon for media — now uses <ImageIcon>
+const TYPE_ICON: Record<ScanType, React.ElementType> = {
+  url: Link2,
+  text: FileText,
+  media: ImageIcon,
+}
+
+function formatTimeAgo(date: Date): string {
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
+  const intervals: [number, string][] = [
+    [31536000, "year"],
+    [2592000, "month"],
+    [86400, "day"],
+    [3600, "hour"],
+    [60, "minute"],
+  ]
+  for (const [duration, label] of intervals) {
+    const count = Math.floor(seconds / duration)
+    if (count >= 1) return `${count} ${label}${count > 1 ? "s" : ""} ago`
+  }
+  return "just now"
+}
+
+function ScanSkeleton() {
+  return (
+    <div className="flex items-start space-x-3 border-b pb-3 last:border-0">
+      <Skeleton className="h-7 w-7 rounded-full flex-shrink-0" />
+      <div className="flex-1 space-y-2">
+        <div className="flex justify-between">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-5 w-12 rounded-full" />
+        </div>
+        <Skeleton className="h-3 w-24" />
+      </div>
+    </div>
+  )
+}
+
 export function RecentScans() {
   const [scans, setScans] = useState<ScanResult[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // In a real app, this would fetch from an API
-    const mockScans: ScanResult[] = [
-      {
-        id: "1",
-        type: "url",
-        content: "https://example.com/secure-page",
-        timestamp: new Date(Date.now() - 1000 * 60 * 5), // 5 minutes ago
-        status: "safe",
-        score: 92,
-      },
-      {
-        id: "2",
-        type: "text",
-        content: "Suspicious message with concerning language...",
-        timestamp: new Date(Date.now() - 1000 * 60 * 30), // 30 minutes ago
-        status: "suspicious",
-        score: 65,
-      },
-      {
-        id: "3",
-        type: "url",
-        content: "https://malicious-site.example",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60), // 1 hour ago
-        status: "dangerous",
-        score: 15,
-      },
-      {
-        id: "4",
-        type: "media",
-        content: "profile-image.jpg",
-        timestamp: new Date(Date.now() - 1000 * 60 * 120), // 2 hours ago
-        status: "safe",
-        score: 95,
-      },
-      {
-        id: "5",
-        type: "text",
-        content: "Normal conversation text...",
-        timestamp: new Date(Date.now() - 1000 * 60 * 180), // 3 hours ago
-        status: "safe",
-        score: 98,
-      },
-    ]
+    // In Phase 4, this will fetch from /api/scans with auth token
+    // For now, use realistic demo data
+    const timer = setTimeout(() => {
+      setScans([
+        {
+          id: "1",
+          type: "url",
+          content: "https://example.com/secure-page",
+          timestamp: new Date(Date.now() - 1000 * 60 * 5),
+          status: "safe",
+          score: 92,
+        },
+        {
+          id: "2",
+          type: "text",
+          content: "Suspicious phishing message…",
+          timestamp: new Date(Date.now() - 1000 * 60 * 30),
+          status: "suspicious",
+          score: 65,
+        },
+        {
+          id: "3",
+          type: "url",
+          content: "https://malicious-site.example",
+          timestamp: new Date(Date.now() - 1000 * 60 * 60),
+          status: "dangerous",
+          score: 15,
+        },
+        {
+          id: "4",
+          type: "media",
+          content: "profile-image.jpg",
+          timestamp: new Date(Date.now() - 1000 * 60 * 120),
+          status: "safe",
+          score: 95,
+        },
+        {
+          id: "5",
+          type: "text",
+          content: "Normal conversation text…",
+          timestamp: new Date(Date.now() - 1000 * 60 * 180),
+          status: "safe",
+          score: 98,
+        },
+      ])
+      setIsLoading(false)
+    }, 500)
 
-    setScans(mockScans)
+    return () => clearTimeout(timer)
   }, [])
-
-  const getStatusColor = (status: ScanStatus) => {
-    switch (status) {
-      case "safe":
-        return "bg-green-500/20 text-green-700 hover:bg-green-500/20"
-      case "suspicious":
-        return "bg-yellow-500/20 text-yellow-700 hover:bg-yellow-500/20"
-      case "dangerous":
-        return "bg-red-500/20 text-red-700 hover:bg-red-500/20"
-      default:
-        return ""
-    }
-  }
-
-  const getTypeIcon = (type: ScanType) => {
-    switch (type) {
-      case "url":
-        return <Globe className="h-4 w-4" />
-      case "text":
-        return <FileText className="h-4 w-4" />
-      case "media":
-        return <Link className="h-4 w-4" />
-      default:
-        return null
-    }
-  }
-
-  const formatTimeAgo = (date: Date) => {
-    const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000)
-
-    let interval = seconds / 31536000
-    if (interval > 1) return Math.floor(interval) + " years ago"
-
-    interval = seconds / 2592000
-    if (interval > 1) return Math.floor(interval) + " months ago"
-
-    interval = seconds / 86400
-    if (interval > 1) return Math.floor(interval) + " days ago"
-
-    interval = seconds / 3600
-    if (interval > 1) return Math.floor(interval) + " hours ago"
-
-    interval = seconds / 60
-    if (interval > 1) return Math.floor(interval) + " minutes ago"
-
-    return Math.floor(seconds) + " seconds ago"
-  }
 
   return (
     <Card>
@@ -122,34 +125,52 @@ export function RecentScans() {
         <CardDescription>History of your recent safety checks</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          {scans.map((scan) => (
-            <div key={scan.id} className="flex items-start space-x-3 border-b pb-3 last:border-0">
-              <div className="mt-0.5 rounded-full bg-muted p-1.5">{getTypeIcon(scan.type)}</div>
-              <div className="flex-1 space-y-1">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium leading-none">
-                    {scan.type === "url"
-                      ? scan.content.length > 25
-                        ? scan.content.substring(0, 25) + "..."
-                        : scan.content
-                      : scan.type === "text"
-                        ? "Text content"
-                        : scan.content}
-                  </p>
-                  <Badge className={getStatusColor(scan.status)}>{scan.score}%</Badge>
-                </div>
-                <div className="flex items-center text-xs text-muted-foreground">
-                  <span className="capitalize">{scan.type}</span>
-                  <span className="mx-1">•</span>
-                  <span>{formatTimeAgo(scan.timestamp)}</span>
-                </div>
-              </div>
-            </div>
-          ))}
+        <div className="space-y-4" role="list" aria-label="Recent scans">
+          {isLoading
+            ? Array.from({ length: 4 }).map((_, i) => <ScanSkeleton key={i} />)
+            : scans.map((scan) => {
+                const Icon = TYPE_ICON[scan.type]
+                const displayContent =
+                  scan.type === "url"
+                    ? scan.content.length > 28
+                      ? scan.content.substring(0, 28) + "…"
+                      : scan.content
+                    : scan.content
+
+                return (
+                  <div
+                    key={scan.id}
+                    className="flex items-start space-x-3 border-b pb-3 last:border-0"
+                    role="listitem"
+                  >
+                    <div
+                      className="mt-0.5 rounded-full bg-muted p-1.5 flex-shrink-0"
+                      aria-hidden="true"
+                    >
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-medium leading-none truncate" title={scan.content}>
+                          {displayContent}
+                        </p>
+                        <Badge className={`flex-shrink-0 ${STATUS_BADGE[scan.status]}`}>
+                          {scan.score}%
+                        </Badge>
+                      </div>
+                      <div className="flex items-center text-xs text-muted-foreground">
+                        <span className="capitalize">{scan.type}</span>
+                        <span className="mx-1" aria-hidden="true">•</span>
+                        <time dateTime={scan.timestamp.toISOString()}>
+                          {formatTimeAgo(scan.timestamp)}
+                        </time>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
         </div>
       </CardContent>
     </Card>
   )
 }
-

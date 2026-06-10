@@ -1,26 +1,47 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { type NextRequest } from "next/server"
+import { UrlAnalysisSchema, validateInput } from "@/lib/validators"
+import { ValidationError } from "@/lib/errors"
+import { successResponse, errorResponse } from "@/lib/api-response"
+import { logger, generateCorrelationId } from "@/lib/logger"
 
 export async function POST(request: NextRequest) {
-  try {
-    const { url } = await request.json()
+  const correlationId = generateCorrelationId()
 
-    if (!url) {
-      return NextResponse.json({ error: "URL is required" }, { status: 400 })
+  try {
+    // Extract and parse request body
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch (parseError) {
+      logger.warn("Invalid JSON in request body", { endpoint: "/api/analyze-url" }, correlationId)
+      throw new ValidationError("Invalid JSON format")
     }
 
-    // In a real implementation, you would:
-    // 1. Check the URL against known malicious URL databases
-    // 2. Analyze the domain reputation
-    // 3. Check for phishing patterns
-    // 4. Use a service like Google Safe Browsing API
+    // Validate input
+    const validation = validateInput(UrlAnalysisSchema, body)
+    if (!validation.success) {
+      logger.warn("URL validation failed", { errors: validation.errors }, correlationId)
+      throw new ValidationError("Invalid URL format", validation.errors)
+    }
 
-    // For demo purposes, we'll simulate an analysis
+    const { url } = validation.data
+
+    logger.info("Analyzing URL", { url: url.substring(0, 100) }, correlationId)
+
+    // In Phase 2, this will be replaced with:
+    // 1. Check the URL against known malicious URL databases (VirusTotal)
+    // 2. Analyze the domain reputation (AbuseIPDB)
+    // 3. Check for phishing patterns (PhishTank, URLScan)
+    // 4. Use Google Safe Browsing API for real-time detection
+
+    // For now, use simulated analysis
     const analysisResult = await simulateUrlAnalysis(url)
 
-    return NextResponse.json(analysisResult)
+    logger.threatAnalysis("url", analysisResult, correlationId)
+
+    return successResponse(analysisResult, correlationId)
   } catch (error) {
-    console.error("Error analyzing URL:", error)
-    return NextResponse.json({ error: "Failed to analyze URL" }, { status: 500 })
+    return errorResponse(error, correlationId)
   }
 }
 

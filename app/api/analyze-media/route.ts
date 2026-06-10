@@ -1,27 +1,75 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { type NextRequest } from "next/server"
+import { ValidationError, FileUploadError } from "@/lib/errors"
+import { successResponse, errorResponse } from "@/lib/api-response"
+import { logger, generateCorrelationId } from "@/lib/logger"
 
 export async function POST(request: NextRequest) {
+  const correlationId = generateCorrelationId()
+
   try {
-    const formData = await request.formData()
+    // Extract FormData
+    let formData: FormData
+    try {
+      formData = await request.formData()
+    } catch (parseError) {
+      logger.warn("Invalid FormData in request", { endpoint: "/api/analyze-media" }, correlationId)
+      throw new ValidationError("Invalid form data")
+    }
+
     const file = formData.get("file") as File | null
 
     if (!file) {
-      return NextResponse.json({ error: "Media file is required" }, { status: 400 })
+      throw new ValidationError("Media file is required", { file: ["File is required"] })
     }
 
-    // In a real implementation, you would:
-    // 1. Upload the file to a temporary storage
-    // 2. Use a computer vision API (AWS Rekognition, Google Vision, etc.)
-    // 3. Analyze the media for inappropriate content
-    // 4. Delete the temporary file
+    // Validate file type
+    const allowedMimes = [
+      // Images
+      "image/jpeg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+      "image/bmp",
+      "image/tiff",
+      // Videos
+      "video/mp4",
+      "video/quicktime",
+      "video/x-msvideo",
+      "video/webm",
+      "video/x-matroska",
+    ]
 
-    // For demo purposes, we'll simulate an analysis
+    if (!allowedMimes.includes(file.type)) {
+      logger.warn("Unsupported media type", { fileType: file.type }, correlationId)
+      throw new FileUploadError(
+        "Unsupported file type. Allowed: JPEG, PNG, GIF, WebP, BMP, TIFF (images) or MP4, MOV, AVI, WebM, MKV (videos)"
+      )
+    }
+
+    // Validate file size (100MB max)
+    const maxSize = 100 * 1024 * 1024
+    if (file.size > maxSize) {
+      logger.warn("File size exceeds limit", { fileSize: file.size, maxSize }, correlationId)
+      throw new FileUploadError(`File size exceeds ${maxSize / 1024 / 1024}MB limit`)
+    }
+
+    logger.info("Analyzing media", { fileName: file.name, fileSize: file.size, fileType: file.type }, correlationId)
+
+    // In Phase 2, this will be replaced with:
+    // 1. Upload file to temporary storage (secure temp directory or S3)
+    // 2. VirusTotal file hash lookup + full scan if needed
+    // 3. Computer vision API (AWS Rekognition, Google Vision, or Cloudinary)
+    // 4. OCR analysis for embedded text (Tesseract.js)
+    // 5. File signature validation (magic bytes)
+    // 6. Delete temporary file after analysis
+
     const analysisResult = await simulateMediaAnalysis(file)
 
-    return NextResponse.json(analysisResult)
+    logger.threatAnalysis("media", analysisResult, correlationId)
+
+    return successResponse(analysisResult, correlationId)
   } catch (error) {
-    console.error("Error analyzing media:", error)
-    return NextResponse.json({ error: "Failed to analyze media" }, { status: 500 })
+    return errorResponse(error, correlationId)
   }
 }
 
